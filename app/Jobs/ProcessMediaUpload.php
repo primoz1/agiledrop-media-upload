@@ -77,7 +77,7 @@ class ProcessMediaUpload implements ShouldQueue
     {
         // Called after all retries are exhausted
         Media::where('id', $this->mediaId)->update([
-                                                       'status' => MediaStatus::Failed,
+                                                       'status'        => MediaStatus::Failed,
                                                        'error_message' => $e->getMessage(),
                                                    ]);
     }
@@ -100,13 +100,20 @@ class ProcessMediaUpload implements ShouldQueue
         $media->update(['type' => 'video']);
 
         $cmd = [
-            'ffmpeg', '-y',
-            '-ss', '00:00:01',
-            '-i', $source,
-            '-vframes', '1',
-            '-vf', "scale='if(gt(iw,ih),min(200,iw),-2)':'if(gt(ih,iw),min(200,ih),-2)'",
+            'ffmpeg',
+            '-y',
+            '-ss',
+            '00:00:01',
+            '-i',
+            $source,
+            '-vframes',
+            '1',
+            '-vf',
+            "scale='if(gt(iw,ih),min(200,iw),-2)':'if(gt(ih,iw),min(200,ih),-2)'",
             $destination,
-            '-hide_banner', '-loglevel', 'error'
+            '-hide_banner',
+            '-loglevel',
+            'error'
         ];
 
         $process = new Process($cmd);
