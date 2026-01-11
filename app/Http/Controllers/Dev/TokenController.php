@@ -36,7 +36,7 @@ class TokenController extends Controller
         $user->tokens()->delete();
 
         return response()->json([
-                                    'token' => $user->createToken('media-api')->plainTextToken,
+                                    'token' => $user->createToken('media-api', ['media:upload', 'media:status'])->plainTextToken,
                                 ]);
     }
 }

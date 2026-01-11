@@ -9,6 +9,6 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
-    Route::post('/media', [MediaController::class, 'store']);
-    Route::get('/media/{media}/status', [MediaController::class, 'status']);
+    Route::post('/media', [MediaController::class, 'store'])->middleware(['abilities:media:upload']);
+    Route::get('/media/{media}/status', [MediaController::class, 'status'])->middleware(['abilities:media:status']);
 });
