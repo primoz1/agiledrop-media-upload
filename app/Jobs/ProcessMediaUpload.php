@@ -16,8 +16,21 @@ class ProcessMediaUpload implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $tries   = 3;
+    public $timeout = 120;
+
     public function __construct(public int $mediaId)
     {
+    }
+
+    /**
+     * Calculate the number of seconds to wait before retrying the job.
+     *
+     * @return array<int, int>
+     */
+    public function backoff(): array
+    {
+        return [5, 30, 120];
     }
 
     public function handle(): void
@@ -56,6 +69,15 @@ class ProcessMediaUpload implements ShouldQueue
                                'error_message' => $e->getMessage(),
                            ]);
         }
+    }
+
+    public function failed(\Throwable $e): void
+    {
+        // Called after all retries are exhausted
+        Media::where('id', $this->mediaId)->update([
+                                                       'status' => MediaStatus::Failed,
+                                                       'error_message' => $e->getMessage(),
+                                                   ]);
     }
 
     private function processImage(Media $media, string $source, string $destination): void
