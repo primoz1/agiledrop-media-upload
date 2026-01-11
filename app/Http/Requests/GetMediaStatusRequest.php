@@ -40,7 +40,7 @@ class GetMediaStatusRequest extends FormRequest
     public function mediaOrFail(): Media
     {
         return Media::query()
-                    ->where('id', $this->route('id'))
+                    ->where('id', $this->route('media'))
                     ->where('uploaded_by', $this->user()->id)
                     ->firstOrFail();
     }
