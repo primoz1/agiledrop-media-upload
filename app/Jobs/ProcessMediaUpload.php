@@ -6,11 +6,13 @@ use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use Symfony\Component\Process\Process;
 
 class ProcessMediaUpload implements ShouldQueue
 {
@@ -96,15 +98,24 @@ class ProcessMediaUpload implements ShouldQueue
     private function processVideo(Media $media, string $source, string $destination): void
     {
         $media->update(['type' => 'video']);
-        $cmd = sprintf(
-            'ffmpeg -y -ss 00:00:01 -i %s -vframes 1 -vf "scale=\'if(gt(iw,ih),min(200,iw),-2)\':\'if(gt(ih,iw),min(200,ih),-2)\'" %s 2>&1',
-            escapeshellarg($source),
-            escapeshellarg($destination)
-        );
 
-        exec($cmd, $out, $code);
-        if ($code !== 0) {
-            throw new Exception('FFmpeg failed: ' . implode("\n", $out));
+        $cmd = [
+            'ffmpeg', '-y',
+            '-ss', '00:00:01',
+            '-i', $source,
+            '-vframes', '1',
+            '-vf', "scale='if(gt(iw,ih),min(200,iw),-2)':'if(gt(ih,iw),min(200,ih),-2)'",
+            $destination,
+            '-hide_banner', '-loglevel', 'error'
+        ];
+
+        $process = new Process($cmd);
+        $process->setTimeout(60); // Nastavi primeren timeout
+
+        try {
+            $process->mustRun();
+        } catch (ProcessFailedException $exception) {
+            throw new \Exception('FFmpeg failed: ' . $exception->getMessage());
         }
     }
 
