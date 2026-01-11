@@ -21,7 +21,7 @@ return new class extends Migration {
              */
             $table->foreignId('client_id')
                   ->nullable()
-                  ->constrained()
+                  ->constrained('clients')
                   ->cascadeOnDelete();
             $table->foreignId('uploaded_by')
                   ->nullable()
