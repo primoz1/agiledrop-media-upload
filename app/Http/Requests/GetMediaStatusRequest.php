@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Media;
 use Illuminate\Foundation\Http\FormRequest;
 
 class GetMediaStatusRequest extends FormRequest
@@ -11,10 +12,10 @@ class GetMediaStatusRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $media = $this->route('media');
-
-        // Check if the media exists and belongs to the authenticated user
-        return $media && $media->uploaded_by === auth()->id();
+        // Middleware handles authentication.
+        // Ownership checks are performed explicitly during resource lookup
+        // to avoid leaking resource existence (404 vs. 403).
+        return true;
     }
 
     /**
@@ -27,5 +28,20 @@ class GetMediaStatusRequest extends FormRequest
         return [
             //
         ];
+    }
+
+    /**
+     * Resolve the media resource within the context of the authenticated user.
+     *
+     * Ownership-based lookup is performed here instead of authorize()
+     * to ensure a consistent 404 response when the resource does not exist
+     * or does not belong to the user.
+     */
+    public function mediaOrFail(): Media
+    {
+        return Media::query()
+                    ->where('id', $this->route('id'))
+                    ->where('uploaded_by', $this->user()->id)
+                    ->firstOrFail();
     }
 }

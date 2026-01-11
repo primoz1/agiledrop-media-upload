@@ -47,8 +47,10 @@ class MediaController extends Controller
     /**
      * Retrieve the current processing status of a media item.
      */
-    public function status(GetMediaStatusRequest $request, Media $media): MediaResource
+    public function status(GetMediaStatusRequest $request): JsonResponse
     {
-        return new MediaResource($media);
+        $media = $request->mediaOrFail();
+
+        return (new MediaResource($media))->response();
     }
 }
