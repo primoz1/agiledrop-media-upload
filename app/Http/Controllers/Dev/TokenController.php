@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers\Dev;
 
 use App\Http\Controllers\Controller;
+use App\Models\Clients;
 use App\Models\User;
 use Illuminate\Support\Facades\App;
 
@@ -17,11 +18,17 @@ class TokenController extends Controller
     {
         abort_if(!App::isLocal(), 404);
 
+        $client = Clients::firstOrCreate(
+            ['slug' => 'shop'],
+            ['name' => 'Example App']
+        );
+
         $user = User::firstOrCreate(
             ['email' => 'api@example.com'],
             [
-                'name' => 'API User',
-                'password' => bcrypt('password'),
+                'client_id' => $client->id,
+                'name'      => 'API User',
+                'password'  => bcrypt('password'),
             ]
         );
 
