@@ -110,7 +110,7 @@ class ProcessMediaUpload implements ShouldQueue
         ];
 
         $process = new Process($cmd);
-        $process->setTimeout(60); // Nastavi primeren timeout
+        $process->setTimeout(60);
 
         try {
             $process->mustRun();
