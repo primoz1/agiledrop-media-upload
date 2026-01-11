@@ -1,0 +1,34 @@
+<?php namespace App\Models;
+
+use App\Enum\MediaStatus;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Media extends Model
+{
+    protected $fillable = [
+        'client_id',
+        'uploaded_by',
+        'title',
+        'description',
+        'type',
+        'original_path',
+        'thumbnail_path',
+        'status',
+        'error_message',
+    ];
+
+    protected $casts = [
+        'status' => MediaStatus::class,
+    ];
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Clients::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}
