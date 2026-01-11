@@ -29,7 +29,7 @@ class Media extends Model
 
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Clients::class);
+        return $this->belongsTo(Client::class);
     }
 
     public function uploader(): BelongsTo

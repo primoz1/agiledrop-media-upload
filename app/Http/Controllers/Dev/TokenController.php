@@ -1,7 +1,7 @@
 <?php namespace App\Http\Controllers\Dev;
 
 use App\Http\Controllers\Controller;
-use App\Models\Clients;
+use App\Models\Client;
 use App\Models\User;
 use Illuminate\Support\Facades\App;
 
@@ -18,7 +18,7 @@ class TokenController extends Controller
     {
         abort_if(!App::isLocal(), 404);
 
-        $client = Clients::firstOrCreate(
+        $client = Client::firstOrCreate(
             ['slug' => 'shop'],
             ['name' => 'Example App']
         );

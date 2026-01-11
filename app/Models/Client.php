@@ -3,7 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Clients extends Model
+class Client extends Model
 {
     protected $fillable = ['name', 'slug'];
 
