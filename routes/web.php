@@ -7,6 +7,10 @@ Route::get('/', function () {
 });
 
 Route::get('/login', function () {
+    if (request()->expectsJson()) {
+        abort(401);
+    }
+
     abort(501, 'Not implemented yet');
 })->name('login');
 

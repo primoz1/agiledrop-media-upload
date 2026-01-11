@@ -1,70 +1,54 @@
 <?php namespace App\Http\Controllers;
 
+use App\Enum\MediaStatus;
+use App\Http\Requests\GetMediaStatusRequest;
+use App\Http\Requests\StoreMediaRequest;
+use App\Http\Resources\MediaResource;
 use App\Jobs\ProcessMediaUpload;
 use App\Models\Media;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MediaController extends Controller
 {
-    public function store(Request $request)
+    /**
+     * Store a new media upload and dispatch a processing job.
+     */
+    public function store(StoreMediaRequest $request): MediaResource
     {
-        $validated = $request->validate([
-                                            'title'       => ['required', 'string', 'max:255'],
-                                            'description' => ['nullable', 'string'],
-                                            'file'        => ['required',
-                                                              'file',
-                                                              // basic guard: accept common image/video
-                                                              'mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-matroska,video/webm'
-                                            ],
-                                        ]);
+        return DB::transaction(function () use ($request) {
+            $user = $request->user();
 
-        $user   = $request->user(); // Sanctum resolves this from Bearer token
+            // Initialize media record using relationship for automatic user association
+            $media = $user->media()->create([
+                                                'title'       => $request->validated('title'),
+                                                'description' => $request->validated('description'),
+                                                'status'      => MediaStatus::Queued,
+                                                'client_id'   => $user->client_id, // Associate with user's client
+                                            ]);
 
-        if (!$user) {
-            return response()->json(['message' => 'User has no client assigned.'], 403);
-        }
+            // Quickly store the original file to disk using media ID as folder
+            $path = $request->file('file')
+                            ->store("media/original/{$media->id}", 'public');
 
-        // first save to the database, so we can use the ID for file storage
-        $media = Media::create([
-                                   'title'       => $validated['title'],
-                                   'description' => $validated['description'] ?? NULL,
-                                   'uploaded_by' => $user->id,
-                                   'status'      => 'queued',
-                               ]);
+            // Update path and move to processing state
+            $media->update([
+                               'original_path' => $path,
+                               'status'        => MediaStatus::Queued,
+                           ]);
 
-        // store original quickly (no heavy processing)
-        $path = $request->file('file')->store("media/original/{$media->id}", 'public');
+            ProcessMediaUpload::dispatch($media->id);
 
-        $media->update([
-                           'original_path' => $path,
-                           'status'        => 'processing',
-                       ]);
-
-        ProcessMediaUpload::dispatch($media->id);
-
-        return response()->json([
-                                    'id'         => $media->id,
-                                    'status'     => $media->status,
-                                    'status_url' => url("/api/media/{$media->id}/status"),
-                                ],
-                                202);
+            return (new MediaResource($media))
+                ->response()
+                ->setStatusCode(202);
+        });
     }
 
-    public function status(Media $media)
+    /**
+     * Retrieve the current processing status of a media item.
+     */
+    public function status(GetMediaStatusRequest $request, Media $media): MediaResource
     {
-        $user = \request()->user();
-
-        if ($media->client_id !== $user->uploaded_by) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
-
-        return response()->json([
-                                    'id'             => $media->id,
-                                    'status'         => $media->status,
-                                    'type'           => $media->type,
-                                    'original_path'  => $media->original_path,
-                                    'thumbnail_path' => $media->thumbnail_path,
-                                    'error_message'  => $media->error_message,
-                                ]);
+        return new MediaResource($media);
     }
 }
