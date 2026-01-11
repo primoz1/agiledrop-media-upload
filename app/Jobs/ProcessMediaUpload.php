@@ -26,6 +26,10 @@ class ProcessMediaUpload implements ShouldQueue
         $disk  = 'public';
 
         try {
+            $media->update([
+                               'status' => MediaStatus::Processing
+                           ]);
+
             $fullPath      = Storage::disk($disk)->path($media->original_path);
             $mime          = mime_content_type($fullPath);
             $thumbRelPath  = "media/thumb/{$media->id}/thumb.jpg";
