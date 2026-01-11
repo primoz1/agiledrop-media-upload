@@ -65,7 +65,7 @@ class ProcessMediaUpload implements ShouldQueue
                                'status'         => MediaStatus::Ready,
                                'error_message'  => NULL,
                            ]);
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             $media->update([
                                'status'        => MediaStatus::Failed,
                                'error_message' => $e->getMessage(),
