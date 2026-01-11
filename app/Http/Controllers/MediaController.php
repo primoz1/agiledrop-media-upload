@@ -17,10 +17,11 @@ class MediaController extends Controller
     public function store(StoreMediaRequest $request): JsonResponse
     {
         $user = $request->user();
-        $path = NULL;
+        $path = null;
+        $media = null;
 
-        return DB::transaction(function () use ($request, $user, &$path) {
-            try {
+        try {
+            return DB::transaction(function () use ($request, $user, &$path, &$media) {
                 // Initialize media record using relationship for automatic user association
                 $media = $user->media()->create([
                                                     'title'       => $request->validated('title'),
@@ -45,15 +46,7 @@ class MediaController extends Controller
 
                 if (!$path) {
                     // Explicit failure if storage returns false/null
-                    $media->update([
-                                       'status'        => MediaStatus::Failed,
-                                       'error_message' => 'Failed to store uploaded file.',
-                                   ]);
-                    DB::commit();
-
-                    return response()->json([
-                                                'message' => 'Upload failed.',
-                                            ], 500);
+                    throw new \Exception('Failed to store uploaded file.');
                 }
 
                 // Link the stored file path to the media record
@@ -65,24 +58,23 @@ class MediaController extends Controller
                 return (new MediaResource($media))
                     ->response()
                     ->setStatusCode(202);
-
-            } catch (\Throwable $e) {
-                // Clean up the file if the database transaction fails
-                if ($path) {
-                    Storage::disk('public')->delete($path);
-                }
-
-                // If record exists, mark it failed (optional but nice)
-                if ($media) {
-                    $media->forceFill([
-                                          'status'        => MediaStatus::Failed,
-                                          'error_message' => $e->getMessage(),
-                                      ])->save();
-                }
-
-                throw $e;
+            });
+        } catch (\Throwable $e) {
+            // Clean up the file if the database transaction fails
+            if ($path) {
+                Storage::disk('public')->delete($path);
             }
-        });
+
+            // If record exists, mark it failed
+            if ($media) {
+                $media->forceFill([
+                                      'status'        => MediaStatus::Failed,
+                                      'error_message' => $e->getMessage(),
+                                  ])->save();
+            }
+
+            return response()->json(['message' => 'Upload failed: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
