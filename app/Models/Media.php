@@ -27,7 +27,7 @@ class Media extends Model
         return $this->belongsTo(Clients::class);
     }
 
-    public function user(): BelongsTo
+    public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

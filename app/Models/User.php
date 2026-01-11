@@ -25,7 +25,7 @@ class User extends Authenticatable
         'client_id',
         'name',
         'email',
-        'password',
+        'password'
     ];
 
     /**
@@ -53,6 +53,6 @@ class User extends Authenticatable
 
     public function media(): HasMany
     {
-        return $this->hasMany(Media::class);
+        return $this->hasMany(Media::class, 'uploaded_by');
     }
 }
