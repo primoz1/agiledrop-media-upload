@@ -1,59 +1,131 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Media Storage API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A robust Laravel 12 API designed for centralized media storage. It handles image and video uploads, metadata management, and asynchronous processing for multiple external applications.
 
-## About Laravel
+The service is intended as a **centralized media storage backend** for:
+- Content Management Systems (CMS)
+- E-commerce platforms (product images and videos)
+- Marketing websites and mobile applications
+- Internal tools requiring secure media storage
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The API accepts media uploads with metadata, stores the original file, and generates thumbnails asynchronously to ensure high availability and prevent request timeouts.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Features
 
-## Learning Laravel
+- **Asynchronous Processing**: Background jobs for media handling using Laravel Queues.
+- **Thumbnail Generation**:
+    - **Images**: Resized thumbnails (max 200x200) using Intervention Image.
+    - **Videos**: Frame extraction (at 1s mark) using `ffmpeg`.
+- **Status Monitoring**: Real-time tracking of processing states (`queued`, `processing`, `ready`, `failed`).
+- **Secure Access**: Protected via **Laravel Sanctum** (Personal Access Tokens).
+- **Docker Ready**: Fully containerized environment with Laravel Sail.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Requirements
 
-## Laravel Sponsors
+- **Docker Desktop** (Recommended for Sail)
+- **PHP 8.2+** & **Composer** (if running locally)
+- **ffmpeg** (Required for video thumbnail extraction)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## Installation & Setup
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+1. **Clone & Install:**
+   ```bash
+   git clone <repository-url>
+   cd agiledrop-media-upload
+   composer install
+   ```
 
-## Contributing
+2. **Environment Setup:**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+3. **Start with Laravel Sail:**
+   ```bash
+   ./vendor/bin/sail up -d
+   ./vendor/bin/sail artisan migrate
+   ./vendor/bin/sail artisan storage:link
+   ```
 
-## Code of Conduct
+4. **Queue Worker:**
+   To process thumbnails, start the worker:
+   ```bash
+   ./vendor/bin/sail artisan queue:work
+   ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## Authentication
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+This API uses **Laravel Sanctum**. To generate a token for an external application:
 
-## License
+1. Access Tinker: `./vendor/bin/sail artisan tinker`
+2. Create user and token:
+   ```php
+   $user = \App\Models\User::create([
+       'name' => 'API Client',
+       'email' => 'api@example.com',
+       'password' => bcrypt('secret-password'),
+   ]);
+   echo $user->createToken('media-api')->plainTextToken;
+   ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Include this token in your requests: `Authorization: Bearer YOUR_TOKEN`
+
+---
+
+## API Endpoints
+
+### 1. Upload Media
+`POST /api/media`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| title | string | Yes | Max 255 chars |
+| description | string | No | Optional details |
+| file | file | Yes | image/jpeg, png, webp, gif or video/mp4, mov, mkv, webm |
+
+**Response (202 Accepted):**
+```json
+{
+  "id": 1,
+  "status": "processing",
+  "status_url": "http://localhost/api/media/1/status"
+}
+```
+
+### 2. Check Status
+`GET /api/media/{id}/status`
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "status": "ready",
+    "type": "image",
+    "original_url": "http://localhost/storage/media/original/1/file.jpg",
+    "thumbnail_url": "http://localhost/storage/media/thumb/1/thumb.jpg"
+    "error_message": null
+}
+```
+
+## Running Tests
+The project uses PHPUnit for Feature and Unit testing:
+```bash
+./vendor/bin/sail artisan test
+```
+
+## Tech Stack
+* Framework: Laravel 12
+* Database: MySQL
+* Media: Intervention Image 3, FFmpeg
+* Dev Ops: Laravel Sail (Docker)
+
+**Note:** A development-only helper endpoint exists for generating API tokens locally.
+It is disabled outside the local environment.
