@@ -1,59 +1,180 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Media Storage API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel-based web API for uploading and storing images and videos for multiple external websites and applications.
 
-## About Laravel
+The service is intended to be used as a **centralized media storage backend** for content-driven platforms such as:
+- Content Management Systems (CMS)
+- E-commerce platforms (product images and videos)
+- Marketing websites and landing pages
+- Mobile and web applications requiring media uploads
+- Internal company tools that need secure media storage
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The API accepts media uploads together with metadata (title and description), stores the original file, and generates a thumbnail asynchronously to prevent request timeouts and ensure high availability.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Features
 
-## Learning Laravel
+- Upload images and videos via REST API
+- Store title and description metadata
+- Asynchronous media processing using Laravel queues
+- Thumbnail generation:
+    - Images: resized thumbnail (max 200x200)
+    - Videos: thumbnail extracted from a video frame (max 200x200)
+- Processing status endpoint
+- API authentication using Laravel Sanctum
+- Immediate `202 Accepted` response on upload
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Requirements
 
-## Laravel Sponsors
+- PHP 8.2+
+- Laravel 10+
+- Database (MySQL, PostgreSQL, etc.)
+- Queue worker running
+- `ffmpeg` installed on the server (required for video thumbnails)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## Installation
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan storage:link
+```
 
-## Contributing
+## Queue setup
+This project uses the database queue driver.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan queue:table
+php artisan migrate
+php artisan queue:work
+```
+Make sure the queue worker is running in the background (Supervisor or systemd in production).
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Authentication
+This API is protected using Laravel Sanctum and requires a Personal Access Token.
 
-## Security Vulnerabilities
+## Create a user and token
+Using Laravel Tinker:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan tinker
+```
+```php
+$user = \App\Models\User::create([
+    'name' => 'API User',
+    'email' => 'api@example.com',
+    'password' => bcrypt('password'),
+]);
 
-## License
+$token = $user->createToken('media-api')->plainTextToken;
+```
+Save the generated token — it will be used for all API requests.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Using the token
+Send the token in the request header:
+
+```makefile
+Authorization: Bearer YOUR_API_TOKEN
+```
+
+---
+
+## API Endpoints
+### POST /api/media
+Uploads an image or video file and starts asynchronous processing.
+
+
+* **Authentication:** Required
+* **Content-Type:** `multipart/form-data`
+
+Request fields
+
+| Field | Type | Required | Description         |
+|--------|---|---|---------------------|
+| title | string | yes | Media title         |
+| description | string |no | Media description   |
+| file | file | yes | Image or video file |
+
+Supported MIME types:
+* Images: image/jpeg, image/png, image/webp, image/gif
+* Videos: video/mp4, video/quicktime, video/x-matroska, video/webm
+
+### Response (202 Accepted)
+```json
+{
+  "id": 1,
+  "status": "processing",
+  "status_url": "https://your-domain/api/media/1/status"
+}
+```
+
+---
+
+## GET `/api/media/{id}/status`
+Returns the current processing status of the uploaded media.
+
+**Authentication:** Required
+
+## Response (200 OK)
+```json
+{
+  "id": 1,
+  "status": "ready",
+  "type": "image",
+  "original_path": "media/original/1/file.jpg",
+  "thumbnail_path": "media/thumb/1/thumb.jpg",
+  "error_message": null
+}
+```
+**Possible status values**
+* queued
+* processing
+* ready
+* failed
+
+---
+
+## Thumbnail Generation
+* **Images**
+    Resized to fit within 200x200 pixels while maintaining aspect ratio.
+* **Videos**
+    A single frame is extracted (around the 1-second mark) using ffmpeg and resized to a maximum of 200x200 pixels.
+
+Original files and thumbnails are stored separately, and both paths are saved in the database.
+
+---
+
+## Example Requests
+### Upload media
+```bash
+curl -X POST http://localhost:8000/api/media \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Accept: application/json" \
+  -F "title=Example media" \
+  -F "description=Sample upload" \
+  -F "file=@/path/to/file.mp4"
+```
+### Check status
+```bash
+curl -X GET http://localhost:8000/api/media/1/status \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Accept: application/json"
+  ```
+---
+
+## Notes
+* All media processing is handled asynchronously via Laravel queues.
+* The upload endpoint never performs heavy processing.
+* `ffmpeg` must be available in the system PATH for video thumbnails.
+* The API is designed to be used by multiple external applications or websites.
+* The API is intended for server-to-server communication and is not publicly accessible.
+
