@@ -37,17 +37,13 @@ class Media extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function originalPath(): Attribute
+    public function getOriginalUrlAttribute(): ?string
     {
-        return Attribute::make(
-            get: fn (?string $value) => $value ? Storage::disk('public')->url($value) : null,
-        );
+        return $this->original_path ? Storage::disk('public')->url($this->original_path) : null;
     }
 
-    public function thumbnailPath(): Attribute
+    public function getThumbnailUrlAttribute(): ?string
     {
-        return Attribute::make(
-            get: fn (?string $value) => $value ? Storage::disk('public')->url($value) : null,
-        );
+        return $this->thumbnail_path ? Storage::disk('public')->url($this->thumbnail_path) : null;
     }
 }
