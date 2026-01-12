@@ -36,7 +36,7 @@ The API accepts media uploads with metadata, stores the original file, and gener
 
 1. **Clone & Install:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/primoz1/agiledrop-media-upload.git
    cd agiledrop-media-upload
    composer install
    ```
@@ -64,7 +64,23 @@ The API accepts media uploads with metadata, stores the original file, and gener
 
 ## Authentication
 
-This API uses **Laravel Sanctum**. To generate a token for an external application:
+### Authentication design
+
+The API is protected using **Laravel Sanctum** with Personal Access Tokens.
+
+This approach was chosen because it is:
+- well suited for server-to-server communication
+- simple to use for multiple external applications
+- stateless and easy to rotate or revoke tokens
+
+Each external application is expected to use its own API token, which must be
+sent with every request using the `Authorization: Bearer <token>` header.
+
+Unauthorized requests are rejected with HTTP 401.
+Token abilities are enforced on endpoints (e.g. upload requires `media:upload`, status requires `media:status`).
+
+
+### To generate a token for an external application:
 
 1. Access Tinker: `./vendor/bin/sail artisan tinker`
 2. Create user and token:
@@ -74,7 +90,7 @@ This API uses **Laravel Sanctum**. To generate a token for an external applicati
        'email' => 'api@example.com',
        'password' => bcrypt('secret-password'),
    ]);
-   echo $user->createToken('media-api')->plainTextToken;
+   echo $user->createToken('media-api', ['media:upload', 'media:status'])->plainTextToken;
    ```
 
 Include this token in your requests: `Authorization: Bearer YOUR_TOKEN`
@@ -110,13 +126,13 @@ Include this token in your requests: `Authorization: Bearer YOUR_TOKEN`
     "status": "ready",
     "type": "image",
     "original_url": "http://localhost/storage/media/original/1/file.jpg",
-    "thumbnail_url": "http://localhost/storage/media/thumb/1/thumb.jpg"
+    "thumbnail_url": "http://localhost/storage/media/thumb/1/thumb.jpg",
     "error_message": null
 }
 ```
 
 ## Running Tests
-The project uses PHPUnit for Feature and Unit testing:
+The project uses PHPUnit for Feature testing:
 ```bash
 ./vendor/bin/sail artisan test
 ```
